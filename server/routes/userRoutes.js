@@ -500,4 +500,49 @@ router.put('/notifications/read', protect, async (req, res) => {
   }
 });
 
+// =========== ADDRESS BOOK (Multiple Addresses) ===========
+
+// @route GET /api/users/addresses
+// @access Private
+router.get('/addresses', protect, async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id).select('addresses');
+    res.json(user.addresses || []);
+  } catch (err) {
+    res.status(500).json({ message: 'Failed to fetch addresses' });
+  }
+});
+
+// @route POST /api/users/addresses
+// @access Private
+router.post('/addresses', protect, async (req, res) => {
+  try {
+    const { label, address, city, postalCode, country } = req.body;
+    const user = await User.findById(req.user._id);
+    
+    if (user.addresses.length >= 5) {
+      return res.status(400).json({ message: 'Maximum 5 addresses allowed' });
+    }
+
+    user.addresses.push({ label, address, city, postalCode, country });
+    await user.save();
+    res.status(201).json(user.addresses);
+  } catch (err) {
+    res.status(500).json({ message: 'Failed to save address' });
+  }
+});
+
+// @route DELETE /api/users/addresses/:id
+// @access Private
+router.delete('/addresses/:id', protect, async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id);
+    user.addresses = user.addresses.filter(a => a._id.toString() !== req.params.id);
+    await user.save();
+    res.json(user.addresses);
+  } catch (err) {
+    res.status(500).json({ message: 'Failed to delete address' });
+  }
+});
+
 module.exports = router;

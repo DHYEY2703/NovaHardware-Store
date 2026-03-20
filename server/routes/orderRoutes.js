@@ -305,9 +305,12 @@ router.post('/:id/create-razorpay-order', protect, async (req, res) => {
     if (!order) return res.status(404).json({ message: 'Order not found' });
 
     // Initialize Razorpay securely
+    if (!process.env.RAZORPAY_KEY_ID || !process.env.RAZORPAY_KEY_SECRET) {
+      return res.status(500).json({ message: 'Razorpay keys not configured in .env' });
+    }
     const razorpay = new Razorpay({
-      key_id: process.env.RAZORPAY_KEY_ID || 'rzp_test_h5V9aUf4S7hX4J', // Replace in .env
-      key_secret: process.env.RAZORPAY_KEY_SECRET || 'ZJhXq3aUf4S7hX4J9aUf4S7', // Replace in .env
+      key_id: process.env.RAZORPAY_KEY_ID,
+      key_secret: process.env.RAZORPAY_KEY_SECRET,
     });
 
     // Razorpay completely operates in INR (Paise), multiply by 100
@@ -608,6 +611,39 @@ router.put('/:id/return-action', protect, admin, async (req, res) => {
     res.json(updatedOrder);
   } else {
     res.status(404).json({ message: 'Order not found' });
+  }
+});
+
+// @route   GET /api/orders/export/csv (Admin Only)
+// @access  Private/Admin
+router.get('/export/csv', protect, admin, async (req, res) => {
+  try {
+    const orders = await Order.find({}).populate('user', 'name email').sort({ createdAt: -1 });
+    
+    const header = 'Order ID,Customer Name,Email,Status,Payment Method,Items Price,Tax,Shipping,Total,Paid,Delivered,Date\n';
+    const rows = orders.map(o => {
+      return [
+        o._id.toString().slice(-8).toUpperCase(),
+        o.user?.name || 'N/A',
+        o.user?.email || 'N/A',
+        o.status,
+        o.paymentMethod,
+        o.itemsPrice.toFixed(2),
+        o.taxPrice.toFixed(2),
+        o.shippingPrice.toFixed(2),
+        o.totalPrice.toFixed(2),
+        o.isPaid ? 'Yes' : 'No',
+        o.isDelivered ? 'Yes' : 'No',
+        new Date(o.createdAt).toLocaleDateString('en-IN')
+      ].join(',');
+    }).join('\n');
+
+    const csv = header + rows;
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', 'attachment; filename=NovaHardware_Orders_Report.csv');
+    res.send(csv);
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to export orders' });
   }
 });
 

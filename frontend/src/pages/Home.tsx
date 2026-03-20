@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useDispatch, useSelector } from 'react-redux';
 import { addToCart } from '../store/cartSlice';
-import { ShoppingCart, Star, StarHalf } from 'lucide-react';
+import { ShoppingCart, Star, StarHalf, SlidersHorizontal, X, BarChart3 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useLocation, Link, useNavigate } from 'react-router-dom';
 
@@ -15,7 +15,20 @@ interface Product {
   countInStock: number;
   rating: number;
   numReviews: number;
+  category: string;
 }
+
+const SkeletonCard = () => (
+  <div className="bg-white dark:bg-gray-900 rounded-lg shadow border border-gray-100 dark:border-gray-800 animate-pulse">
+    <div className="w-full h-48 bg-gray-200 dark:bg-gray-800 rounded-t-lg"></div>
+    <div className="p-4 space-y-3">
+      <div className="h-5 bg-gray-200 dark:bg-gray-800 rounded w-3/4"></div>
+      <div className="h-4 bg-gray-200 dark:bg-gray-800 rounded w-1/2"></div>
+      <div className="h-8 bg-gray-200 dark:bg-gray-800 rounded w-1/3"></div>
+      <div className="h-10 bg-gray-200 dark:bg-gray-800 rounded-full"></div>
+    </div>
+  </div>
+);
 
 const Home = () => {
   const [products, setProducts] = useState<Product[]>([]);
@@ -25,6 +38,10 @@ const Home = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const { search } = useLocation();
+
+  // Filters
+  const [priceRange, setPriceRange] = useState<string>('');
+  const [minRating, setMinRating] = useState<number>(0);
 
   const { userInfo } = useSelector((state: any) => state.auth);
 
@@ -39,7 +56,18 @@ const Home = () => {
       try {
         setLoading(true);
         const { data } = await axios.get(`/api/products${search}`);
-        setProducts(data.products || data);
+        let fetched = data.products || data;
+
+        // Apply client-side filters
+        if (priceRange) {
+          const [min, max] = priceRange.split('-').map(Number);
+          fetched = fetched.filter((p: Product) => max ? p.price >= min && p.price <= max : p.price >= min);
+        }
+        if (minRating > 0) {
+          fetched = fetched.filter((p: Product) => p.rating >= minRating);
+        }
+
+        setProducts(fetched);
         setPage(data.page || 1);
         setPages(data.pages || 1);
         setLoading(false);
@@ -49,11 +77,37 @@ const Home = () => {
       }
     };
     fetchProducts();
-  }, [search]);
+  }, [search, priceRange, minRating]);
 
   const handleAddToCart = (product: Product) => {
     dispatch(addToCart({ ...product, qty: 1 }));
     toast.success(`${product.name} added to cart!`);
+  };
+
+  const clearFilters = () => {
+    setPriceRange('');
+    setMinRating(0);
+  };
+
+  const [compareCount, setCompareCount] = useState(0);
+  useEffect(() => {
+    setCompareCount(JSON.parse(localStorage.getItem('compareItems') || '[]').length);
+  }, []);
+
+  const addToCompare = (product: Product) => {
+    const items = JSON.parse(localStorage.getItem('compareItems') || '[]');
+    if (items.find((i: any) => i._id === product._id)) {
+      toast('Already in compare list', { icon: '⚖️' });
+      return;
+    }
+    if (items.length >= 4) {
+      toast.error('Max 4 items for comparison!');
+      return;
+    }
+    items.push(product);
+    localStorage.setItem('compareItems', JSON.stringify(items));
+    setCompareCount(items.length);
+    toast.success(`${product.name} added to compare!`);
   };
 
   const renderStars = (rating: number) => {
@@ -63,6 +117,8 @@ const Home = () => {
       </span>
     ));
   };
+
+  const activeFilters = priceRange || minRating > 0;
 
   return (
     <div className="flex flex-col md:flex-row gap-8">
@@ -76,29 +132,85 @@ const Home = () => {
           <li><Link to="/?category=Accessories" className="hover:text-cyan-600 transition">Peripherals</Link></li>
         </ul>
 
-        <h2 className="text-xl font-extrabold text-gray-900 dark:text-white mt-8 mb-4 border-b dark:border-gray-700 pb-2">Filter by Price</h2>
+        <h2 className="text-xl font-extrabold text-gray-900 dark:text-white mt-8 mb-4 border-b dark:border-gray-700 pb-2 flex items-center gap-2">
+          <SlidersHorizontal size={18}/> Filter by Price
+        </h2>
         <div className="space-y-2 text-gray-700 dark:text-gray-400">
-          <label className="flex items-center gap-2"><input type="checkbox" /> Under $50</label>
-          <label className="flex items-center gap-2"><input type="checkbox" /> $50 to $200</label>
-          <label className="flex items-center gap-2"><input type="checkbox" /> $200 to $1000</label>
-          <label className="flex items-center gap-2"><input type="checkbox" /> Over $1000</label>
+          {[
+            { label: 'Under $50', value: '0-50' },
+            { label: '$50 to $200', value: '50-200' },
+            { label: '$200 to $1000', value: '200-1000' },
+            { label: 'Over $1000', value: '1000-999999' },
+          ].map((filter) => (
+            <label key={filter.value} className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="radio"
+                name="priceRange"
+                checked={priceRange === filter.value}
+                onChange={() => setPriceRange(filter.value)}
+                className="w-4 h-4 text-cyan-600"
+              />
+              {filter.label}
+            </label>
+          ))}
         </div>
+
+        <h2 className="text-xl font-extrabold text-gray-900 dark:text-white mt-8 mb-4 border-b dark:border-gray-700 pb-2">Filter by Rating</h2>
+        <div className="space-y-2">
+          {[4, 3, 2, 1].map((star) => (
+            <label key={star} className="flex items-center gap-2 cursor-pointer text-gray-700 dark:text-gray-400">
+              <input
+                type="radio"
+                name="minRating"
+                checked={minRating === star}
+                onChange={() => setMinRating(star)}
+                className="w-4 h-4 text-cyan-600"
+              />
+              <span className="flex">{Array.from({ length: 5 }, (_, i) => <Star key={i} size={14} fill={i < star ? "currentColor" : "none"} className={i < star ? "text-yellow-400" : "text-gray-300"} />)}</span>
+              <span className="text-sm">& Up</span>
+            </label>
+          ))}
+        </div>
+
+        {activeFilters && (
+          <button onClick={clearFilters} className="mt-6 w-full flex items-center justify-center gap-2 py-2 text-sm font-bold text-red-600 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded hover:bg-red-100 dark:hover:bg-red-900/40 transition">
+            <X size={16}/> Clear All Filters
+          </button>
+        )}
       </aside>
 
       {/* Main Content Grid */}
       <div className="flex-1">
-        <h1 className="text-3xl font-extrabold mb-6 bg-clip-text text-transparent bg-gradient-to-r from-gray-900 to-cyan-700 dark:from-cyan-400 dark:to-white">Explosive Hardware Deals</h1>
+        <div className="flex items-center justify-between mb-6">
+          <h1 className="text-3xl font-extrabold bg-clip-text text-transparent bg-gradient-to-r from-gray-900 to-cyan-700 dark:from-cyan-400 dark:to-white">Explosive Hardware Deals</h1>
+          {activeFilters && (
+            <span className="text-sm font-bold text-cyan-600 dark:text-cyan-400 bg-cyan-50 dark:bg-cyan-900/20 px-3 py-1 rounded-full border border-cyan-200 dark:border-cyan-800">
+              {products.length} result{products.length !== 1 ? 's' : ''} found
+            </span>
+          )}
+        </div>
         
         {loading ? (
-          <div className="text-center mt-20 text-xl font-semibold animate-pulse text-cyan-600">Loading enterprise catalog...</div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            {Array.from({ length: 8 }).map((_, i) => <SkeletonCard key={i} />)}
+          </div>
         ) : products.length === 0 ? (
-          <div className="text-xl text-gray-600 font-bold bg-white p-8 rounded-lg shadow-md">No products found matching your search.</div>
+          <div className="text-xl text-gray-600 dark:text-gray-400 font-bold bg-white dark:bg-gray-900 p-8 rounded-lg shadow-md border dark:border-gray-800">
+            No products found matching your filters.
+            {activeFilters && <button onClick={clearFilters} className="block mt-3 text-cyan-600 hover:underline text-base">Clear all filters</button>}
+          </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {products.map((product) => (
               <div key={product._id} className="bg-white dark:bg-gray-900 rounded-lg shadow border border-gray-100 dark:border-gray-800 hover:shadow-cyan-500/20 hover:shadow-2xl transition duration-300 flex flex-col">
-                <Link to={`/product/${product._id}`}>
+                <Link to={`/product/${product._id}`} className="relative">
                   <img src={product.image} alt={product.name} className="w-full h-48 object-cover rounded-t-lg bg-gray-100" />
+                  {product.countInStock > 0 && product.countInStock <= 5 && (
+                    <span className="absolute top-2 left-2 bg-red-500 text-white text-xs font-bold px-2 py-1 rounded">Only {product.countInStock} left!</span>
+                  )}
+                  {product.countInStock === 0 && (
+                    <span className="absolute top-2 left-2 bg-gray-800 text-white text-xs font-bold px-2 py-1 rounded">Out of Stock</span>
+                  )}
                 </Link>
                 <div className="p-4 flex-1 flex flex-col justify-between">
                   <div>
@@ -126,6 +238,12 @@ const Home = () => {
                       <ShoppingCart size={18} />
                       {product.countInStock > 0 ? 'Add to Cart' : 'Out of Stock'}
                     </button>
+                    <button
+                      onClick={() => addToCompare(product)}
+                      className="mt-2 w-full flex items-center justify-center gap-2 py-1.5 rounded-full font-bold text-sm border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:border-cyan-500 hover:text-cyan-600 transition"
+                    >
+                      <BarChart3 size={14} /> Compare
+                    </button>
                   </div>
                 </div>
               </div>
@@ -133,7 +251,7 @@ const Home = () => {
           </div>
         )}
 
-        {/* Dynamic Pagination Engine */}
+        {/* Pagination */}
         {pages > 1 && (
           <div className="flex justify-center mt-12 mb-6">
             <div className="flex space-x-2 bg-white dark:bg-gray-900 p-2 border dark:border-gray-800 shadow-sm rounded-lg">
@@ -153,6 +271,15 @@ const Home = () => {
           </div>
         )}
       </div>
+
+      {/* Floating Compare Bar */}
+      {compareCount > 0 && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-gray-900 dark:bg-gray-800 text-white px-6 py-3 rounded-full shadow-2xl flex items-center gap-4 z-50 border border-gray-700 animate-bounce-once">
+          <BarChart3 size={20} className="text-cyan-400" />
+          <span className="font-bold">{compareCount} item{compareCount > 1 ? 's' : ''} selected</span>
+          <Link to="/compare" className="bg-cyan-600 hover:bg-cyan-700 px-4 py-1.5 rounded-full font-bold text-sm transition">Compare Now</Link>
+        </div>
+      )}
     </div>
   );
 };

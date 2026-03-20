@@ -191,7 +191,32 @@ const Admin = () => {
         </div>
       ) : (
         <div className="bg-white dark:bg-gray-900 p-8 rounded-lg shadow border-l-4 border-cyan-600 transition-colors">
-          <h2 className="text-xl font-bold mb-6 flex items-center gap-2 dark:text-white"><Package className="text-cyan-600" /> Live Customer Orders</h2>
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-xl font-bold flex items-center gap-2 dark:text-white"><Package className="text-cyan-600" /> Live Customer Orders</h2>
+            <button
+              onClick={() => {
+                const link = document.createElement('a');
+                link.href = `/api/orders/export/csv`;
+                link.setAttribute('download', 'NovaHardware_Orders_Report.csv');
+                // We need auth header, so use fetch
+                fetch('/api/orders/export/csv', { headers: { Authorization: `Bearer ${userInfo.token}` } })
+                  .then(res => res.blob())
+                  .then(blob => {
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = 'NovaHardware_Orders_Report.csv';
+                    a.click();
+                    window.URL.revokeObjectURL(url);
+                    toast.success('Orders exported to CSV!');
+                  })
+                  .catch(() => toast.error('Export failed'));
+              }}
+              className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white font-bold rounded shadow transition text-sm"
+            >
+              📥 Export CSV
+            </button>
+          </div>
           {loadingOrders ? <p className="animate-pulse dark:text-gray-400">Loading backend pipeline...</p> : (
             orders.length === 0 ? <p className="text-gray-500 font-bold dark:text-gray-400">No orders placed yet.</p> : (
             <div className="overflow-x-auto">

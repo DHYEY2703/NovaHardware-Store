@@ -11,6 +11,7 @@ import Profile from './pages/Profile';
 import Register from './pages/Register';
 import VerifyOTP from './pages/VerifyOTP';
 import ForgotPassword from './pages/ForgotPassword';
+import Compare from './pages/Compare';
 import Chatbot from './components/Chatbot';
 import { Toaster } from 'react-hot-toast';
 import { ThemeProvider } from './context/ThemeContext';
@@ -36,6 +37,7 @@ function App() {
               <Route path="/admin" element={<Admin />} />
               <Route path="/checkout" element={<Checkout />} />
               <Route path="/placeorder" element={<PlaceOrder />} />
+              <Route path="/compare" element={<Compare />} />
             </Routes>
           </main>
         </div>
