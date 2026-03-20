@@ -5,7 +5,7 @@
 ![Tech Stack](https://img.shields.io/badge/Stack-MERN-61DAFB?style=for-the-badge&logo=react&logoColor=white)
 ![Node](https://img.shields.io/badge/Node.js-18+-339933?style=for-the-badge&logo=node.js&logoColor=white)
 ![MongoDB](https://img.shields.io/badge/MongoDB-Atlas-47A248?style=for-the-badge&logo=mongodb&logoColor=white)
-![License](https://img.shields.io/badge/License-MIT-yellow?style=for-the-badge)
+![License](https://img.shields.io/badge/License-Proprietary-red?style=for-the-badge)
 
 ---
 
@@ -245,7 +245,8 @@ All emails follow a consistent dark green (`#173831`) + cream (`#FEFFEA`) brand 
 
 ## 📄 License
 
-This project is licensed under the MIT License.
+This project is **proprietary software**. All rights reserved. See [LICENSE](./LICENSE) for details.  
+Unauthorized copying, modification, or distribution is strictly prohibited.
 
 ---
 
